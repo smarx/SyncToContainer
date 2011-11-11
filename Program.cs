@@ -67,7 +67,14 @@ namespace SyncToContainer
             foreach (var name in cloudHashes.Keys.Where(n => !localHashes.ContainsKey(n)))
             {
                 Console.WriteLine("Deleting {0}", name);
-                container.GetBlobReference(name).Delete();
+                semaphore.WaitOne();
+                var blob = container.GetBlobReference(name);
+                Interlocked.Increment(ref count);
+                blob.BeginDelete((ar) => {
+                    blob.EndDelete(ar);
+                    semaphore.Release();
+                    Interlocked.Decrement(ref count);
+                }, null);
             }
 
             while (count > 0) Thread.Sleep(TimeSpan.FromSeconds(1));
